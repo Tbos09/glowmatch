@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GlowMatch</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+  <h1>Welcome to GlowMatch</h1>
+
+  <div id="auth">
+    <input type="email" id="email" placeholder="Email" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="signUp()">Sign Up</button>
+    <button onclick="logIn()">Log In</button>
+    <button onclick="logOut()">Log Out</button>
+    <p id="auth-message"></p>
+  </div>
+
+  <div id="user" class="hidden">
+    <p id="welcome"></p>
+    <p id="premium-status"></p>
+    <button id="pay-premium" class="hidden" onclick="payPremium()">Upgrade to Premium (R50)</button>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAPB-qLSmfSX_omdkxdSRh7Dak8sNpdD04",
+      authDomain: "love-birds-b2107.firebaseapp.com",
+      projectId: "love-birds-b2107",
+      storageBucket: "love-birds-b2107.firebasestorage.app",
+      messagingSenderId: "126747582554",
+      appId: "1:126747582554:web:be72354a1f2c50ca30f863",
+      measurementId: "G-R190QT1VV1"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    const authMessage = document.getElementById('auth-message');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const authDiv = document.getElementById('auth');
+    const userDiv = document.getElementById('user');
+    const welcomeText = document.getElementById('welcome');
+    const premiumStatus = document.getElementById('premium-status');
+    const payButton = document.getElementById('pay-premium');
+
+    function signUp() {
+      const email = emailInput.value;
+      const password = passwordInput.value;
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(userCredential => {
+          const user = userCredential.user;
+          db.ref('users/' + user.uid).set({
+            email: user.email,
+            isPremium: false,
+            joinedAt: new Date().toISOString()
+          });
+          checkPremiumStatus(user.uid);
+          authMessage.textContent = 'Account created!';
+        })
+        .catch(error => authMessage.textContent = error.message);
+    }
+
+    function logIn() {
+      const email = emailInput.value;
+      const password = passwordInput.value;
+      auth.signInWithEmailAndPassword(email, password)
+        .then(userCredential => {
+          const user = userCredential.user;
+          checkPremiumStatus(user.uid);
+          authMessage.textContent = 'Logged in!';
+        })
+        .catch(error => authMessage.textContent = error.message);
+    }
+
+    function logOut() {
+      auth.signOut().then(() => {
+        authDiv.classList.remove('hidden');
+        userDiv.classList.add('hidden');
+        authMessage.textContent = 'Logged out';
+        payButton.classList.add('hidden');
+      });
+    }
+
+    function checkPremiumStatus(uid) {
+      db.ref('users').once('value').then(snapshot => {
+        const users = snapshot.val() || {};
+        const userIds = Object.keys(users);
+        const userIndex = userIds.indexOf(uid);
+
+        const userData = users[uid] || {};
+        const isPremium = userData.isPremium;
+
+        authDiv.classList.add('hidden');
+        userDiv.classList.remove('hidden');
+        welcomeText.textContent = `Welcome, ${userData.email || ''}`;
+
+        if (isPremium) {
+          premiumStatus.textContent = '🌟 You are a Premium member';
+          payButton.classList.add('hidden');
+        } else if (userIndex >= 0 && userIndex < 30) {
+          premiumStatus.textContent = '🎁 Congratulations! You have free Premium access as one of the first 30 users!';
+          payButton.classList.add('hidden');
+
+          // Update user premium status
+          db.ref('users/' + uid).update({ isPremium: true });
+        } else {
+          premiumStatus.textContent = '🔒 You are a Free user. Upgrade to Premium to unlock features.';
+          payButton.classList.remove('hidden');
+        }
+      });
+    }
+
+    function payPremium() {
+      alert('Redirecting to YOCO payment gateway for R50 once-off payment.');
+      // TODO: Add YOCO payment integration here
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        checkPremiumStatus(user.uid);
+      } else {
+        authDiv.classList.remove('hidden');
+        userDiv.classList.add('hidden');
+        payButton.classList.add('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
